@@ -25,6 +25,7 @@ class GodefCommand(sublime_plugin.WindowCommand):
         self.systype = platform.system()
         self.gopath = None
         self.goroot = None
+        self.go111module = "auto"
         self.cmdpaths = []
         self.env = None
         self.gosublime = {}
@@ -34,15 +35,17 @@ class GodefCommand(sublime_plugin.WindowCommand):
         default_setting.set("default_line_ending", "unix")
         gopath = self._gopath()
         goroot = self._goroot()
-        self.load(gopath, goroot, self.systype)
+        go111module = self._go111module()
+        self.load(gopath, goroot, go111module, self.systype)
         self.gopath = gopath
         self.goroot = goroot
+        self.go111module = go111module
         if sys.version_info[0] == 2:
             super(GodefCommand, self).__init__(window)
         else:
             super().__init__(window)
 
-    def load(self, gopath, goroot, systype):
+    def load(self, gopath, goroot, go111module, systype):
         print("===============[Godef]Load Begin==============")
         # print("[Godef]DEBUG: system type: %s" % self.systype)
         if not gopath:
@@ -52,6 +55,9 @@ class GodefCommand(sublime_plugin.WindowCommand):
 
         if not goroot:
             print("[Godef]WARN: no GOROOT defined")
+
+        if not go111module:
+            print("[Godef]INFO: no GO111MODULE defined, the default value is auto")
 
         cmdpaths = []
         for cmd in ['godef', 'guru']:
@@ -97,6 +103,8 @@ to install them.')
         env["GOPATH"] = gopath
         if goroot:
             env["GOROOT"] = goroot
+        if go111module:
+            env["GO111MODULE"] = go111module
 
         self.cmdpaths = cmdpaths
         self.env = env
@@ -109,14 +117,16 @@ to install them.')
         settings = sublime.load_settings("Godef.sublime-settings")
         gopath = real_path(settings.get("gopath", os.getenv('GOPATH')))
         goroot = real_path(settings.get("goroot", os.getenv('GOROOT')))
+        go111module = real_path(settings.get("go111module", os.getenv('GO111MODULE')))
 
-        if self.gopath != gopath or self.goroot != goroot:
+        if self.gopath != gopath or self.goroot != goroot or self.go111module != go111module:
             print('[Godef]INFO: settings change, reload conf')
             self.gopath = gopath
             self.goroot = goroot
+            self.go111module = go111module
             self.cmdpaths = []
             self.env = None
-        if len(self.cmdpaths) != 2 and not self.load(gopath, goroot, self.systype):
+        if len(self.cmdpaths) != 2 and not self.load(gopath, goroot, go111module, self.systype):
             return
 
         print("=================[Godef]Begin=================")
@@ -213,6 +223,7 @@ to install them.')
                 print("[Godef]INFO: found gosublime environment: {env}".format(env=env))
                 self.gosublime["gopath"] = env.get("GOPATH", "")
                 self.gosublime["goroot"] = env.get("GOROOT", "")
+                self.gosublime["go111module"] = env.get("GO111MODULE", "auto")
 
     def _gopath(self):
         settings = sublime.load_settings("Godef.sublime-settings")
@@ -227,6 +238,13 @@ to install them.')
         if goroot is None:
             return self.gosublime.get("goroot", "")
         return goroot
+
+    def _go111module(self):
+        settings = sublime.load_settings("Godef.sublime-settings")
+        go111module = real_path(settings.get("go111module", os.getenv('GO111MODULE')))
+        if go111module is None:
+            return self.gosublime.get("go111module", "auto")
+        return go111module
 
 
 # GodefPrev Commands
